@@ -30,17 +30,38 @@ jobs:
           AUTH="$WP_USER:$WP_APP_PASSWORD"
           CONTENT=$(jq -Rs . < page_content.html)
 
-          EXISTING_ID=$(curl -sS -u "$AUTH" "$WP_BASE/wp-json/wp/v2/pages?slug=impressum&status=any" | jq -r '.[0].id // empty')
+          GET_RESP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" "$WP_BASE/wp-json/wp/v2/pages?slug=impressum&status=any")
+          GET_CODE=$(echo "$GET_RESP" | tail -n1)
+          GET_BODY=$(echo "$GET_RESP" | sed '$d')
+          echo "GET status: $GET_CODE"
+          echo "GET body: $GET_BODY"
+
+          if [ "$GET_CODE" != "200" ]; then
+            echo "::error::Failed to query existing page (HTTP $GET_CODE)"
+            exit 1
+          fi
+
+          EXISTING_ID=$(echo "$GET_BODY" | jq -r '.[0].id // empty')
 
           PAYLOAD=$(jq -n --arg title "Impressum" --arg slug "impressum" --argjson content "$CONTENT" \
             '{title: $title, slug: $slug, status: "publish", content: $content}')
 
           if [ -n "$EXISTING_ID" ]; then
+            URL="$WP_BASE/wp-json/wp/v2/pages/$EXISTING_ID"
             echo "Updating existing page id=$EXISTING_ID"
-            curl -sS -f -u "$AUTH" -X POST "$WP_BASE/wp-json/wp/v2/pages/$EXISTING_ID" \
-              -H "Content-Type: application/json" -d "$PAYLOAD" | jq '{id, link, status}'
           else
+            URL="$WP_BASE/wp-json/wp/v2/pages"
             echo "Creating new page"
-            curl -sS -f -u "$AUTH" -X POST "$WP_BASE/wp-json/wp/v2/pages" \
-              -H "Content-Type: application/json" -d "$PAYLOAD" | jq '{id, link, status}'
+          fi
+
+          RESP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" -X POST "$URL" \
+            -H "Content-Type: application/json" -d "$PAYLOAD")
+          CODE=$(echo "$RESP" | tail -n1)
+          BODY=$(echo "$RESP" | sed '$d')
+          echo "POST status: $CODE"
+          echo "$BODY" | jq '.'
+
+          if [ "$CODE" -ge 300 ]; then
+            echo "::error::WordPress API returned HTTP $CODE"
+            exit 1
           fi
