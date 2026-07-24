@@ -1,0 +1,96 @@
+name: Replace WordPress Homepage
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract page content from impressum.html
+        run: |
+          python3 - <<'PY'
+          import re
+          html = open("impressum.html", encoding="utf-8").read()
+          style = re.search(r"<style>.*?</style>", html, re.S).group(0)
+          body = re.search(r"<body>(.*)</body>", html, re.S).group(1)
+          open("page_content.html", "w", encoding="utf-8").write(style + "\n" + body)
+          PY
+
+      - name: Find and back up the current homepage
+        env:
+          WP_BASE: https://www.solaero.gmbh
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          AUTH="$WP_USER:$WP_APP_PASSWORD"
+
+          SETTINGS=$(curl -sS -w '\n%{http_code}' -u "$AUTH" "$WP_BASE/wp-json/wp/v2/settings")
+          SETTINGS_CODE=$(echo "$SETTINGS" | tail -n1)
+          SETTINGS_BODY=$(echo "$SETTINGS" | sed '$d')
+          echo "Settings status: $SETTINGS_CODE"
+          echo "$SETTINGS_BODY" | jq '{show_on_front, page_on_front, page_for_posts}'
+
+          if [ "$SETTINGS_CODE" != "200" ]; then
+            echo "::error::Failed to read site settings (HTTP $SETTINGS_CODE)"
+            exit 1
+          fi
+
+          SHOW_ON_FRONT=$(echo "$SETTINGS_BODY" | jq -r '.show_on_front')
+          PAGE_ON_FRONT=$(echo "$SETTINGS_BODY" | jq -r '.page_on_front')
+
+          if [ "$SHOW_ON_FRONT" != "page" ] || [ -z "$PAGE_ON_FRONT" ] || [ "$PAGE_ON_FRONT" == "0" ] || [ "$PAGE_ON_FRONT" == "null" ]; then
+            echo "::error::Site homepage is not a static Page (show_on_front=$SHOW_ON_FRONT, page_on_front=$PAGE_ON_FRONT). Refusing to guess which page to replace."
+            exit 1
+          fi
+
+          echo "Homepage is page ID: $PAGE_ON_FRONT"
+          echo "PAGE_ON_FRONT=$PAGE_ON_FRONT" >> "$GITHUB_ENV"
+
+          BACKUP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" "$WP_BASE/wp-json/wp/v2/pages/$PAGE_ON_FRONT?context=edit")
+          BACKUP_CODE=$(echo "$BACKUP" | tail -n1)
+          BACKUP_BODY=$(echo "$BACKUP" | sed '$d')
+          echo "Backup fetch status: $BACKUP_CODE"
+
+          if [ "$BACKUP_CODE" != "200" ]; then
+            echo "::error::Failed to back up current homepage (HTTP $BACKUP_CODE)"
+            exit 1
+          fi
+
+          echo "$BACKUP_BODY" > homepage-backup.json
+          echo "Backed up current homepage title: $(echo "$BACKUP_BODY" | jq -r '.title.raw')"
+
+      - name: Upload homepage backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: homepage-backup
+          path: homepage-backup.json
+          retention-days: 90
+
+      - name: Replace homepage content
+        env:
+          WP_BASE: https://www.solaero.gmbh
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          AUTH="$WP_USER:$WP_APP_PASSWORD"
+          CONTENT=$(jq -Rs . < page_content.html)
+
+          PAYLOAD=$(jq -n --argjson content "$CONTENT" '{content: $content, status: "publish"}')
+
+          RESP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" -X POST "$WP_BASE/wp-json/wp/v2/pages/$PAGE_ON_FRONT" \
+            -H "Content-Type: application/json" -d "$PAYLOAD")
+          CODE=$(echo "$RESP" | tail -n1)
+          BODY=$(echo "$RESP" | sed '$d')
+          echo "POST status: $CODE"
+          echo "$BODY" | jq '{id, link, status, title}'
+
+          if [ "$CODE" -ge 300 ]; then
+            echo "::error::WordPress API returned HTTP $CODE"
+            exit 1
+          fi
