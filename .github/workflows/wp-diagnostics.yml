@@ -1,0 +1,35 @@
+name: WordPress Diagnostics
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List themes and page template options
+        env:
+          WP_BASE: https://www.solaero.gmbh
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          AUTH="$WP_USER:$WP_APP_PASSWORD"
+
+          echo "===== Installed themes ====="
+          THEMES=$(curl -sS -w '\n%{http_code}' -u "$AUTH" "$WP_BASE/wp-json/wp/v2/themes")
+          THEMES_CODE=$(echo "$THEMES" | tail -n1)
+          THEMES_BODY=$(echo "$THEMES" | sed '$d')
+          echo "Themes status: $THEMES_CODE"
+          echo "$THEMES_BODY" | jq '[.[] | {stylesheet, name: .name.rendered, status}]' || echo "$THEMES_BODY"
+
+          echo "===== Page schema (template options) ====="
+          SCHEMA=$(curl -sS -w '\n%{http_code}' -u "$AUTH" -X OPTIONS "$WP_BASE/wp-json/wp/v2/pages")
+          SCHEMA_CODE=$(echo "$SCHEMA" | tail -n1)
+          SCHEMA_BODY=$(echo "$SCHEMA" | sed '$d')
+          echo "Schema status: $SCHEMA_CODE"
+          echo "$SCHEMA_BODY" | jq '.schema.properties.template'
+
+          echo "===== Current site settings ====="
+          SETTINGS=$(curl -sS -u "$AUTH" "$WP_BASE/wp-json/wp/v2/settings")
+          echo "$SETTINGS" | jq '{show_on_front, page_on_front}'
