@@ -1,0 +1,46 @@
+name: Deploy Impressum to WordPress
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract page content from impressum.html
+        run: |
+          python3 - <<'PY'
+          import re
+          html = open("impressum.html", encoding="utf-8").read()
+          style = re.search(r"<style>.*?</style>", html, re.S).group(0)
+          body = re.search(r"<body>(.*)</body>", html, re.S).group(1)
+          open("page_content.html", "w", encoding="utf-8").write(style + "\n" + body)
+          PY
+
+      - name: Create or update the WordPress page via REST API
+        env:
+          WP_BASE: https://www.solaero.gmbh
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          AUTH="$WP_USER:$WP_APP_PASSWORD"
+          CONTENT=$(jq -Rs . < page_content.html)
+
+          EXISTING_ID=$(curl -sS -u "$AUTH" "$WP_BASE/wp-json/wp/v2/pages?slug=impressum&status=any" | jq -r '.[0].id // empty')
+
+          PAYLOAD=$(jq -n --arg title "Impressum" --arg slug "impressum" --argjson content "$CONTENT" \
+            '{title: $title, slug: $slug, status: "publish", content: $content}')
+
+          if [ -n "$EXISTING_ID" ]; then
+            echo "Updating existing page id=$EXISTING_ID"
+            curl -sS -f -u "$AUTH" -X POST "$WP_BASE/wp-json/wp/v2/pages/$EXISTING_ID" \
+              -H "Content-Type: application/json" -d "$PAYLOAD" | jq '{id, link, status}'
+          else
+            echo "Creating new page"
+            curl -sS -f -u "$AUTH" -X POST "$WP_BASE/wp-json/wp/v2/pages" \
+              -H "Content-Type: application/json" -d "$PAYLOAD" | jq '{id, link, status}'
+          fi
