@@ -33,3 +33,12 @@ jobs:
           echo "===== Current site settings ====="
           SETTINGS=$(curl -sS -u "$AUTH" "$WP_BASE/wp-json/wp/v2/settings")
           echo "$SETTINGS" | jq '{show_on_front, page_on_front}'
+
+          echo "===== OPTIONS: themes/twentytwentyfour ====="
+          curl -sS -u "$AUTH" -X OPTIONS "$WP_BASE/wp-json/wp/v2/themes/twentytwentyfour" | jq '.methods // .'
+
+          echo "===== OPTIONS: templates ====="
+          curl -sS -u "$AUTH" -X OPTIONS "$WP_BASE/wp-json/wp/v2/templates" | jq '.methods // .'
+
+          echo "===== Existing templates (current active theme) ====="
+          curl -sS -u "$AUTH" "$WP_BASE/wp-json/wp/v2/templates?per_page=100" | jq '[.[] | {id, slug, theme, title: .title.rendered}]'
