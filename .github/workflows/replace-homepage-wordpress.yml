@@ -20,7 +20,7 @@ jobs:
           open("page_content.html", "w", encoding="utf-8").write(style + "\n" + body)
           PY
 
-      - name: Find and back up the current homepage
+      - name: Back up current Reading settings
         env:
           WP_BASE: https://www.solaero.gmbh
           WP_USER: ${{ secrets.WP_USER }}
@@ -40,38 +40,36 @@ jobs:
             exit 1
           fi
 
+          echo "$SETTINGS_BODY" > reading-settings-backup.json
+
           SHOW_ON_FRONT=$(echo "$SETTINGS_BODY" | jq -r '.show_on_front')
           PAGE_ON_FRONT=$(echo "$SETTINGS_BODY" | jq -r '.page_on_front')
+          echo "PREVIOUS_SHOW_ON_FRONT=$SHOW_ON_FRONT" >> "$GITHUB_ENV"
+          echo "PREVIOUS_PAGE_ON_FRONT=$PAGE_ON_FRONT" >> "$GITHUB_ENV"
 
-          if [ "$SHOW_ON_FRONT" != "page" ] || [ -z "$PAGE_ON_FRONT" ] || [ "$PAGE_ON_FRONT" == "0" ] || [ "$PAGE_ON_FRONT" == "null" ]; then
-            echo "::error::Site homepage is not a static Page (show_on_front=$SHOW_ON_FRONT, page_on_front=$PAGE_ON_FRONT). Refusing to guess which page to replace."
-            exit 1
+          if [ "$SHOW_ON_FRONT" == "page" ] && [ -n "$PAGE_ON_FRONT" ] && [ "$PAGE_ON_FRONT" != "0" ] && [ "$PAGE_ON_FRONT" != "null" ]; then
+            echo "Existing static front page is ID $PAGE_ON_FRONT — backing up its content too"
+            PAGE_BACKUP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" "$WP_BASE/wp-json/wp/v2/pages/$PAGE_ON_FRONT?context=edit")
+            PAGE_BACKUP_CODE=$(echo "$PAGE_BACKUP" | tail -n1)
+            PAGE_BACKUP_BODY=$(echo "$PAGE_BACKUP" | sed '$d')
+            if [ "$PAGE_BACKUP_CODE" == "200" ]; then
+              echo "$PAGE_BACKUP_BODY" > front-page-content-backup.json
+            fi
+          else
+            echo "No static front page currently set (show_on_front=$SHOW_ON_FRONT) — nothing to back up besides the settings themselves"
+            echo '{}' > front-page-content-backup.json
           fi
 
-          echo "Homepage is page ID: $PAGE_ON_FRONT"
-          echo "PAGE_ON_FRONT=$PAGE_ON_FRONT" >> "$GITHUB_ENV"
-
-          BACKUP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" "$WP_BASE/wp-json/wp/v2/pages/$PAGE_ON_FRONT?context=edit")
-          BACKUP_CODE=$(echo "$BACKUP" | tail -n1)
-          BACKUP_BODY=$(echo "$BACKUP" | sed '$d')
-          echo "Backup fetch status: $BACKUP_CODE"
-
-          if [ "$BACKUP_CODE" != "200" ]; then
-            echo "::error::Failed to back up current homepage (HTTP $BACKUP_CODE)"
-            exit 1
-          fi
-
-          echo "$BACKUP_BODY" > homepage-backup.json
-          echo "Backed up current homepage title: $(echo "$BACKUP_BODY" | jq -r '.title.raw')"
-
-      - name: Upload homepage backup artifact
+      - name: Upload backup artifacts
         uses: actions/upload-artifact@v4
         with:
           name: homepage-backup
-          path: homepage-backup.json
+          path: |
+            reading-settings-backup.json
+            front-page-content-backup.json
           retention-days: 90
 
-      - name: Replace homepage content
+      - name: Create or update the homepage page
         env:
           WP_BASE: https://www.solaero.gmbh
           WP_USER: ${{ secrets.WP_USER }}
@@ -81,16 +79,67 @@ jobs:
           AUTH="$WP_USER:$WP_APP_PASSWORD"
           CONTENT=$(jq -Rs . < page_content.html)
 
-          PAYLOAD=$(jq -n --argjson content "$CONTENT" '{content: $content, status: "publish"}')
+          if [ "$PREVIOUS_SHOW_ON_FRONT" == "page" ] && [ -n "$PREVIOUS_PAGE_ON_FRONT" ] && [ "$PREVIOUS_PAGE_ON_FRONT" != "0" ] && [ "$PREVIOUS_PAGE_ON_FRONT" != "null" ]; then
+            TARGET_ID="$PREVIOUS_PAGE_ON_FRONT"
+            echo "Updating existing front page id=$TARGET_ID"
+          else
+            GET_RESP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" "$WP_BASE/wp-json/wp/v2/pages?slug=home&status=any")
+            GET_CODE=$(echo "$GET_RESP" | tail -n1)
+            GET_BODY=$(echo "$GET_RESP" | sed '$d')
+            if [ "$GET_CODE" != "200" ]; then
+              echo "::error::Failed to query existing home page (HTTP $GET_CODE)"
+              exit 1
+            fi
+            TARGET_ID=$(echo "$GET_BODY" | jq -r '.[0].id // empty')
+            echo "No existing static front page; using/creating page with slug 'home' (found id: ${TARGET_ID:-none})"
+          fi
 
-          RESP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" -X POST "$WP_BASE/wp-json/wp/v2/pages/$PAGE_ON_FRONT" \
+          PAYLOAD=$(jq -n --arg title "Home" --arg slug "home" --argjson content "$CONTENT" \
+            '{title: $title, slug: $slug, status: "publish", content: $content}')
+
+          if [ -n "${TARGET_ID:-}" ]; then
+            URL="$WP_BASE/wp-json/wp/v2/pages/$TARGET_ID"
+          else
+            URL="$WP_BASE/wp-json/wp/v2/pages"
+          fi
+
+          RESP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" -X POST "$URL" \
             -H "Content-Type: application/json" -d "$PAYLOAD")
           CODE=$(echo "$RESP" | tail -n1)
           BODY=$(echo "$RESP" | sed '$d')
-          echo "POST status: $CODE"
+          echo "Page POST status: $CODE"
           echo "$BODY" | jq '{id, link, status, title}'
 
           if [ "$CODE" -ge 300 ]; then
             echo "::error::WordPress API returned HTTP $CODE"
             exit 1
           fi
+
+          NEW_PAGE_ID=$(echo "$BODY" | jq -r '.id')
+          echo "NEW_PAGE_ID=$NEW_PAGE_ID" >> "$GITHUB_ENV"
+
+      - name: Set the page as the site's front page
+        env:
+          WP_BASE: https://www.solaero.gmbh
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_APP_PASSWORD: ${{ secrets.WP_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          AUTH="$WP_USER:$WP_APP_PASSWORD"
+
+          PAYLOAD=$(jq -n --argjson page_on_front "$NEW_PAGE_ID" \
+            '{show_on_front: "page", page_on_front: $page_on_front}')
+
+          RESP=$(curl -sS -w '\n%{http_code}' -u "$AUTH" -X POST "$WP_BASE/wp-json/wp/v2/settings" \
+            -H "Content-Type: application/json" -d "$PAYLOAD")
+          CODE=$(echo "$RESP" | tail -n1)
+          BODY=$(echo "$RESP" | sed '$d')
+          echo "Settings POST status: $CODE"
+          echo "$BODY" | jq '{show_on_front, page_on_front}'
+
+          if [ "$CODE" -ge 300 ]; then
+            echo "::error::WordPress API returned HTTP $CODE when updating front-page setting"
+            exit 1
+          fi
+
+          echo "Homepage is now page ID $NEW_PAGE_ID"
