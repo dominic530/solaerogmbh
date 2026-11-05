@@ -1,0 +1,43 @@
+{%- comment -%}
+  SOLAERO 3D viewer button + pill window.
+  Usage:  {% render 'solaero-3d-viewer', uid: 'captaen', model_name: 'CAPTAEN', colors: 'Gold|#d9b25f|solaero3d-captaen-aviator,Black|#161618|solaero3d-captaen-black,Silver|#c4c6cc|solaero3d-captaen-silver' %}
+  colors = comma separated  "Label|#swatchHex|asset-key"  (asset-key = file name of the model script in /assets without ".js")
+  optional: button_label, button_style (solid|outline|text), full_width (true/false), accent, window_bg, hint, hint_touch, poster (image object)
+{%- endcomment -%}
+{%- assign uid = uid | default: 'm' | handleize -%}
+{%- assign model_name = model_name | default: 'SOLAERO' -%}
+{%- assign button_label = button_label | default: 'In 3D ansehen' -%}
+{%- assign button_style = button_style | default: 'solid' -%}
+{%- assign hint = hint | default: 'Ziehen zum Drehen · Scrollen zum Zoomen' -%}
+{%- assign hint_touch = hint_touch | default: 'Ziehen zum Drehen · Zwei Finger zum Zoomen' -%}
+{%- assign items = colors | split: ',' -%}
+{{ 'solaero-3d.css' | asset_url | stylesheet_tag }}
+<div class="s3d" id="s3d-{{ uid }}" data-engine="{{ 'solaero-3d.js' | asset_url }}"
+  style="{% if accent != blank %}--s3d-accent:{{ accent }};{% endif %}{% if window_bg != blank %}--s3d-bg:{{ window_bg }};{% endif %}">
+  <button type="button" class="s3d__btn s3d__btn--{{ button_style }}{% if full_width %} s3d__btn--full{% endif %}" data-s3d-open aria-haspopup="dialog">
+    <svg class="s3d__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 20 7.4v9.2l-8 4.6-8-4.6V7.4z"/><path d="m4 7.4 8 4.6 8-4.6M12 12v9.2"/></svg>
+    <span>{{ button_label }}</span>
+  </button>
+  <div class="s3d__overlay" hidden role="dialog" aria-modal="true" aria-label="{{ model_name | escape }} – 3D">
+    <div class="s3d__scrim"></div>
+    <div class="s3d__win">
+      {%- if poster != blank -%}<img class="s3d__poster" hidden src="{{ poster | image_url: width: 1200 }}" alt="{{ model_name | escape }}" loading="lazy">{%- endif -%}
+      <canvas class="s3d__canvas" role="img" aria-label="{{ model_name | escape }} 3D"></canvas>
+      <div class="s3d__msg" hidden data-nowebgl="3D wird von diesem Gerät nicht unterstützt." data-error="3D konnte nicht geladen werden."></div>
+      <div class="s3d__load"><div class="s3d__spin" aria-hidden="true"></div></div>
+      <button type="button" class="s3d__close" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button>
+      <div class="s3d__hint" data-hint-touch="{{ hint_touch | escape }}">{{ hint }}</div>
+      <div class="s3d__name">{{ model_name }}</div>
+      <div class="s3d__sw" role="radiogroup" aria-label="Farbe">
+        {%- for item in items -%}
+          {%- assign p = item | split: '|' -%}
+          {%- assign key = p[2] | strip -%}
+          {%- if key != blank -%}
+          <button type="button" class="s3d__swb" role="radio" aria-checked="{% if forloop.first %}true{% else %}false{% endif %}" data-key="{{ key }}" data-src="{{ key | append: '.js' | asset_url }}" style="--c:{{ p[1] | strip }}"><span class="s3d__dot"></span><span>{{ p[0] | strip }}</span></button>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+    </div>
+  </div>
+</div>
+<script src="{{ 'solaero-3d-ui.js' | asset_url }}" defer></script>

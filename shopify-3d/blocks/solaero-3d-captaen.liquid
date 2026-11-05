@@ -1,0 +1,58 @@
+{%- comment -%}
+  Theme-Block-Variante (für Themes mit Theme Blocks, z. B. die neuen Shopify-Themes): direkt in die Verkaufsbox ("Buy buttons"-Bereich) einfügen.
+  Bis zu 4 Farben. Gleiche Engine/Assets wie die Section.
+{%- endcomment -%}
+{%- capture colors -%}
+  {%- if block.settings.c1_asset != blank -%}{{ block.settings.c1_label }}|{{ block.settings.c1_swatch }}|{{ block.settings.c1_asset }}{%- endif -%}
+  {%- if block.settings.c2_asset != blank -%},{{ block.settings.c2_label }}|{{ block.settings.c2_swatch }}|{{ block.settings.c2_asset }}{%- endif -%}
+  {%- if block.settings.c3_asset != blank -%},{{ block.settings.c3_label }}|{{ block.settings.c3_swatch }}|{{ block.settings.c3_asset }}{%- endif -%}
+  {%- if block.settings.c4_asset != blank -%},{{ block.settings.c4_label }}|{{ block.settings.c4_swatch }}|{{ block.settings.c4_asset }}{%- endif -%}
+{%- endcapture -%}
+<div class="solaero-3d-block" {{ block.shopify_attributes }}>
+  {%- render 'solaero-3d-viewer',
+    uid: block.id,
+    model_name: block.settings.model_name,
+    colors: colors,
+    button_label: block.settings.button_label,
+    button_style: block.settings.button_style,
+    full_width: block.settings.full_width,
+    accent: block.settings.accent,
+    window_bg: block.settings.window_bg,
+    hint: block.settings.hint,
+    poster: block.settings.poster -%}
+</div>
+
+{% schema %}
+{
+  "name": "SOLAERO 3D · CAPTAEN",
+  "tag": null,
+  "settings": [
+    { "type": "text", "id": "model_name", "label": "Modellname", "default": "CAPTAEN" },
+    { "type": "text", "id": "button_label", "label": "Button-Text", "default": "In 3D ansehen" },
+    { "type": "select", "id": "button_style", "label": "Button-Stil", "default": "outline", "options": [
+      { "value": "solid", "label": "Gefüllt" }, { "value": "outline", "label": "Umrandet" }, { "value": "text", "label": "Nur Text" } ] },
+    { "type": "checkbox", "id": "full_width", "label": "Button über volle Breite", "default": true },
+    { "type": "color", "id": "accent", "label": "Button-/Akzentfarbe", "default": "#111111" },
+    { "type": "color", "id": "window_bg", "label": "Hintergrund im Fenster", "default": "#f3f3f5" },
+    { "type": "text", "id": "hint", "label": "Hinweis-Text", "default": "Ziehen zum Drehen · Scrollen zum Zoomen" },
+    { "type": "image_picker", "id": "poster", "label": "Ersatzbild (nur falls 3D nicht verfügbar ist)" },
+    { "type": "header", "content": "Farbe 1" },
+    { "type": "text", "id": "c1_label", "label": "Name", "default": "Gold" },
+    { "type": "color", "id": "c1_swatch", "label": "Swatch", "default": "#d9b25f" },
+    { "type": "text", "id": "c1_asset", "label": "Modell-Datei (ohne .js)", "default": "solaero3d-captaen-aviator" },
+    { "type": "header", "content": "Farbe 2" },
+    { "type": "text", "id": "c2_label", "label": "Name", "default": "Black" },
+    { "type": "color", "id": "c2_swatch", "label": "Swatch", "default": "#161618" },
+    { "type": "text", "id": "c2_asset", "label": "Modell-Datei (ohne .js)", "default": "solaero3d-captaen-black" },
+    { "type": "header", "content": "Farbe 3" },
+    { "type": "text", "id": "c3_label", "label": "Name", "default": "Silver" },
+    { "type": "color", "id": "c3_swatch", "label": "Swatch", "default": "#c4c6cc" },
+    { "type": "text", "id": "c3_asset", "label": "Modell-Datei (ohne .js)", "default": "solaero3d-captaen-silver" },
+    { "type": "header", "content": "Farbe 4 (optional)" },
+    { "type": "text", "id": "c4_label", "label": "Name" },
+    { "type": "color", "id": "c4_swatch", "label": "Swatch", "default": "#888888" },
+    { "type": "text", "id": "c4_asset", "label": "Modell-Datei (ohne .js)" }
+  ],
+  "presets": [ { "name": "SOLAERO 3D · CAPTAEN" } ]
+}
+{% endschema %}

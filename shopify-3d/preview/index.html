@@ -1,0 +1,27 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SOLAERO 3D Test</title>
+<style>body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:0;background:#fff;color:#111}.box{max-width:420px;margin:60px auto;padding:24px;border:1px solid #e5e5e5;border-radius:16px}
+h1{font-size:20px;margin:0 0 6px}p{color:#666;margin:0 0 18px;font-size:14px}.price{font-size:22px;font-weight:600;margin-bottom:14px}.buy{width:100%;margin-top:10px;padding:14px;border-radius:999px;border:0;background:#c8f;color:#fff;font-weight:700}</style></head>
+<body><div class="box"><h1>CAPTAEN</h1><p>Testseite – simulierte Verkaufsbox</p><div class="price">189,00 €</div>
+<div class="solaero-3d-section solaero-3d-section--left" style="text-align:left;padding:8px 0 8px" ><link rel="stylesheet" href="../assets/solaero-3d.css">
+<div class="s3d" id="s3d-template-captaen" data-engine="../assets/solaero-3d.js"
+  style="--s3d-accent:#111111;--s3d-bg:#f3f3f5;">
+  <button type="button" class="s3d__btn s3d__btn--solid" data-s3d-open aria-haspopup="dialog">
+    <svg class="s3d__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 20 7.4v9.2l-8 4.6-8-4.6V7.4z"/><path d="m4 7.4 8 4.6 8-4.6M12 12v9.2"/></svg>
+    <span>In 3D ansehen</span>
+  </button>
+  <div class="s3d__overlay" hidden role="dialog" aria-modal="true" aria-label="CAPTAEN – 3D">
+    <div class="s3d__scrim"></div>
+    <div class="s3d__win"><canvas class="s3d__canvas" role="img" aria-label="CAPTAEN 3D"></canvas>
+      <div class="s3d__msg" hidden data-nowebgl="3D wird von diesem Gerät nicht unterstützt." data-error="3D konnte nicht geladen werden."></div>
+      <div class="s3d__load"><div class="s3d__spin" aria-hidden="true"></div></div>
+      <button type="button" class="s3d__close" aria-label="Schließen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5 5 19"/></svg></button>
+      <div class="s3d__hint" data-hint-touch="Ziehen zum Drehen · Zwei Finger zum Zoomen">Ziehen zum Drehen · Scrollen zum Zoomen</div>
+      <div class="s3d__name">CAPTAEN</div>
+      <div class="s3d__sw" role="radiogroup" aria-label="Farbe"><button type="button" class="s3d__swb" role="radio" aria-checked="true" data-key="solaero3d-captaen-aviator" data-src="../assets/solaero3d-captaen-aviator.js" style="--c:#d9b25f"><span class="s3d__dot"></span><span>Gold</span></button><button type="button" class="s3d__swb" role="radio" aria-checked="false" data-key="solaero3d-captaen-black" data-src="../assets/solaero3d-captaen-black.js" style="--c:#161618"><span class="s3d__dot"></span><span>Black</span></button><button type="button" class="s3d__swb" role="radio" aria-checked="false" data-key="solaero3d-captaen-silver" data-src="../assets/solaero3d-captaen-silver.js" style="--c:#c4c6cc"><span class="s3d__dot"></span><span>Silver</span></button></div>
+    </div>
+  </div>
+</div>
+<script src="../assets/solaero-3d-ui.js" defer></script>
+</div>
+
+<button class="buy">In den Warenkorb</button></div></body></html>

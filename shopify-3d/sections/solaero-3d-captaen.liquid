@@ -1,0 +1,64 @@
+{%- comment -%} SOLAERO · 3D-Ansicht CAPTAEN – Button öffnet das 3D-Fenster. Farben = Blöcke (Name, Swatch-Farbe, Modell-Datei). {%- endcomment -%}
+{%- capture colors -%}
+  {%- for block in section.blocks -%}{{ block.settings.label }}|{{ block.settings.swatch }}|{{ block.settings.asset }}{%- unless forloop.last -%},{%- endunless -%}{%- endfor -%}
+{%- endcapture -%}
+<div class="solaero-3d-section solaero-3d-section--{{ section.settings.align }}" style="text-align:{{ section.settings.align }};padding:{{ section.settings.pad_top }}px 0 {{ section.settings.pad_bottom }}px" {{ section.shopify_attributes }}>
+  {%- render 'solaero-3d-viewer',
+    uid: section.id,
+    model_name: section.settings.model_name,
+    colors: colors,
+    button_label: section.settings.button_label,
+    button_style: section.settings.button_style,
+    full_width: section.settings.full_width,
+    accent: section.settings.accent,
+    window_bg: section.settings.window_bg,
+    hint: section.settings.hint,
+    poster: section.settings.poster -%}
+</div>
+
+{% schema %}
+{
+  "name": "SOLAERO 3D · CAPTAEN",
+  "tag": "section",
+  "class": "solaero-3d",
+  "settings": [
+    { "type": "header", "content": "Button" },
+    { "type": "text", "id": "model_name", "label": "Modellname (unten links im Fenster)", "default": "CAPTAEN" },
+    { "type": "text", "id": "button_label", "label": "Button-Text", "default": "In 3D ansehen" },
+    { "type": "select", "id": "button_style", "label": "Button-Stil", "default": "solid", "options": [
+      { "value": "solid", "label": "Gefüllt" }, { "value": "outline", "label": "Umrandet" }, { "value": "text", "label": "Nur Text" } ] },
+    { "type": "checkbox", "id": "full_width", "label": "Button über volle Breite", "default": false },
+    { "type": "color", "id": "accent", "label": "Button-/Akzentfarbe", "default": "#111111" },
+    { "type": "select", "id": "align", "label": "Ausrichtung", "default": "left", "options": [
+      { "value": "left", "label": "Links" }, { "value": "center", "label": "Mitte" }, { "value": "right", "label": "Rechts" } ] },
+    { "type": "range", "id": "pad_top", "label": "Abstand oben", "min": 0, "max": 60, "step": 2, "unit": "px", "default": 8 },
+    { "type": "range", "id": "pad_bottom", "label": "Abstand unten", "min": 0, "max": 60, "step": 2, "unit": "px", "default": 8 },
+    { "type": "header", "content": "3D-Fenster" },
+    { "type": "color", "id": "window_bg", "label": "Hintergrund im Fenster", "default": "#f3f3f5" },
+    { "type": "text", "id": "hint", "label": "Hinweis-Text", "default": "Ziehen zum Drehen · Scrollen zum Zoomen" },
+    { "type": "image_picker", "id": "poster", "label": "Ersatzbild (nur falls 3D nicht verfügbar ist)" }
+  ],
+  "blocks": [
+    {
+      "type": "color",
+      "name": "Farbe",
+      "settings": [
+        { "type": "text", "id": "label", "label": "Name der Farbe", "default": "Gold" },
+        { "type": "color", "id": "swatch", "label": "Swatch-Farbe", "default": "#d9b25f" },
+        { "type": "text", "id": "asset", "label": "Modell-Datei (Name aus Assets, ohne .js)", "default": "solaero3d-captaen-aviator", "info": "Datei in Assets hochladen, z. B. solaero3d-captaen-aviator.js" }
+      ]
+    }
+  ],
+  "max_blocks": 8,
+  "presets": [
+    {
+      "name": "SOLAERO 3D · CAPTAEN",
+      "blocks": [
+        { "type": "color", "settings": { "label": "Gold", "swatch": "#d9b25f", "asset": "solaero3d-captaen-aviator" } },
+        { "type": "color", "settings": { "label": "Black", "swatch": "#161618", "asset": "solaero3d-captaen-black" } },
+        { "type": "color", "settings": { "label": "Silver", "swatch": "#c4c6cc", "asset": "solaero3d-captaen-silver" } }
+      ]
+    }
+  ]
+}
+{% endschema %}
